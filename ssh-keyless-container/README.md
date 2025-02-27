@@ -11,3 +11,9 @@ docker build -t ssh-demo .
 ```bash
 docker run --rm -it -p 2222:22 --name dw-ssh ssh-demo
 ```
+
+<h2>Then the SSH command needs to use port mapping like this</h2>
+
+```bash
+ssh -p 2222 don@localhost
+```
