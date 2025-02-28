@@ -1,0 +1,58 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CloudFormation template to deploy a Keypair, Security group & Ubuntu 22.04 EC2 instance with SSH server, a new user "don".
+
+Resources:
+  # Key Pair Resource
+  EC2KeyPair:
+    Type: "AWS::EC2::KeyPair"
+    Properties:
+      KeyName: "DWKeyPair"
+      KeyType: "ed25519"
+      PublicKeyMaterial: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExjcnIlWqGiFB2zaoEi9XhCVoAkD7enACMrcJ1gm/VV don@fundingpips.com"
+
+  # Security Group for SSH Access
+  InstanceSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "Enable SSH access"
+      VpcId: "vpc-0adf2b1fbbe049da6" # FP Virginia us-east-1 VPC
+      SecurityGroupIngress:
+        - IpProtocol: "tcp"
+          FromPort: 22
+          ToPort: 22
+          CidrIp: "0.0.0.0/0" # Allow SSH from anywhere
+
+  # EC2 Instance Resource
+  EC2Instance:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      InstanceType: "t2.micro"
+      ImageId: "ami-08c40ec9ead489470" # Ubuntu 22.04 LTS AMI for us-east-1 (Virginia)
+      KeyName: !Ref EC2KeyPair
+      SecurityGroupIds:
+        - !Ref InstanceSecurityGroup
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          apt-get update -y
+          apt-get install -y sudo vim openssh-server auditd
+          echo 'root:password' | chpasswd
+          systemctl enable ssh
+          systemctl start ssh
+          useradd -m -s /bin/bash -d /home/don don
+          echo "don:password" | chpasswd
+          sudo -u don mkdir -m 700 /home/don/.ssh
+          sudo -u don touch /home/don/.ssh/authorized_keys
+          sudo -u don chmod 644 /home/don/.ssh/authorized_keys
+      Tags:
+        - Key: "Name"
+          Value: "dw-ssh-audit-test"
+
+Outputs:
+  KeyPairName:
+    Description: Name of the created Key Pair
+    Value: !Ref EC2KeyPair
+
+  InstancePublicIP:
+    Description: Public IP address of the EC2 instance
+    Value: !GetAtt EC2Instance.PublicIp
